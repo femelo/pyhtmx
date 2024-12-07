@@ -1,6 +1,7 @@
 from __future__ import annotations
+import sys
 from types import TracebackType
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, TextIO
 import xml.etree.ElementTree as etree
 
 PARENT_TAG: Optional[HTMLElement] = None
@@ -46,9 +47,7 @@ class HTMLElement:
 
     @property
     def tree(self: HTMLElement) -> etree.ElementTree:
-        tree = etree.ElementTree(self._element)
-        tree.indent(tree, space="    ", level=self.level)
-        return tree
+        return etree.ElementTree(self._element)
 
     @property
     def text(self: HTMLElement) -> Optional[str]:
@@ -64,7 +63,7 @@ class HTMLElement:
     def _set_parent(self: HTMLElement) -> None:
         for child in self.children:
             child.parent = self._element
-            child.level = self._level + 1
+            child.level = self.level + 1
 
     def __enter__(self: HTMLElement) -> HTMLElement:
         global PARENT_TAG
@@ -84,12 +83,41 @@ class HTMLElement:
         if PARENT_TAG is self:
             PARENT_TAG = self._parent
 
-    def to_string(self: HTMLElement) -> str:
-        return self.tree.tostring(self._element, method="html")
+    def to_string(
+        self: HTMLElement,
+        space: str = 4 * " ",
+        level: Optional[int] = None,
+    ) -> str:
+        if level is None:
+            level = self.level
+        etree.indent(self._element, space=space, level=level)
+        prefix = (level * space).encode()
+        suffix = b'' if level > 0 else b'\n'
+        encoded_string = prefix + etree.tostring(self._element, method="html") + suffix
+        return encoded_string.decode()
 
-    def write(self: HTMLElement, filename: str) -> None:
-        self.tree.write(filename, method="html")
+    def write(
+        self: HTMLElement,
+        filename: str,
+        space: str = 4 * " ",
+        level: Optional[int] = None,
+    ) -> None:
+        with open(filename, 'w') as file:
+            file.write(
+                self.to_string(
+                    space=space,
+                    level=level,
+                )
+            )
 
-    def dump(self: HTMLElement) -> str:
-        return self.tree.dump(self._element)
-
+    def dump(
+        self: HTMLElement, space:
+        str = 4 * " ",
+        level: Optional[int] = None,
+    ) -> None:
+        if level is None:
+            level = self.level
+        etree.indent(self._element, space=space, level=level)
+        if level > 0:
+            sys.stdout.write(level * space)
+        etree.dump(self._element)
