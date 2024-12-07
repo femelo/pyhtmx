@@ -6,6 +6,24 @@ import xml.etree.ElementTree as etree
 
 PARENT_TAG: Optional[HTMLElement] = None
 
+
+def snake_to_camel_case(input_string: str) -> str:
+    parts = list(
+        filter(
+            lambda part: part != '',
+            input_string.split("_")
+        )
+    )
+    output_string = ''.join(
+        [
+            parts[0].lower(),
+            *map(str.title, parts[1:]),
+        ]
+    )
+    return output_string
+
+
+
 class HTMLElement:
     def __init__(
         self: HTMLElement,
@@ -14,23 +32,35 @@ class HTMLElement:
         **kwargs: Any,
     ):
         self.tag = tag 
+        # Get children
         if children is None:
             self.children = []
         elif isinstance(children, HTMLElement):
             self.children = [children]
         else:
             self.children = children
+        # Get element content
+        text: Optional[str] = None
+        for field in ("text", "text_content", "content", "inner_html"):
+            if field in kwargs:
+                text = kwargs.pop(field)
+                continue
+            field_camel_case = snake_to_camel_case(field)
+            if field_camel_case in kwargs:
+                text = kwargs.pop(field_camel_case)
+        # Other attributes
         self.attributes: dict[str, Any] = kwargs
         self._parent: Optional[HTMLElement] = None
         self._level: int = 0
         self._element: Optional[etree.Element] = None
-        self._build_element()
+        # Build element
+        self._build_element(text=text)
         self._set_parent()
 
     @property
     def parent(self: HTMLElement) -> Optional[HTMLElement]:
         return self._parent
-    
+
     @parent.setter
     def parent(self: HTMLElement, value: Optional[HTMLElement]) -> None:
         self._parent = value
@@ -57,12 +87,14 @@ class HTMLElement:
     def text(self: HTMLElement, value: Optional[str]) -> None:
         self._element.text = value
 
-    def _build_element(self: HTMLElement) -> None:
+    def _build_element(self: HTMLElement, text: Optional[str] = None) -> None:
         self._element = etree.Element(self.tag, attrib=self.attributes)
+        if text is not None:
+            self._element.text = text
 
     def _set_parent(self: HTMLElement) -> None:
         for child in self.children:
-            child.parent = self._element
+            child.parent = self
             child.level = self.level + 1
 
     def __enter__(self: HTMLElement) -> HTMLElement:
