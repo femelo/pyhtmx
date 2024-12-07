@@ -17,7 +17,7 @@ Inspired by this StackOverflow thread on [how to generate HTML with XML](https:/
 ## Installing
 
 ```bash
-  $ python3 -m pip install pyhtmx
+  $ python3 -m pip install pyhtmx-lib
 ```
 
 ## Examples
