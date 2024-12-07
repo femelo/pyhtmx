@@ -21,8 +21,8 @@ class HTMLElement:
             self.children = children
         self.attributes: dict[str, Any] = kwargs
         self._parent: Optional[HTMLElement] = None
+        self._level: int = 0
         self._element: Optional[etree.Element] = None
-        self._text: Optional[str] = None
         self._build_element()
         self._set_parent()
 
@@ -33,20 +33,30 @@ class HTMLElement:
     @parent.setter
     def parent(self: HTMLElement, value: Optional[HTMLElement]) -> None:
         self._parent = value
-        if self._parent._element is not None:
+        if self._parent is not None and self._parent._element is not None:
             self._parent._element.append(self._element)
 
     @property
+    def level(self: HTMLElement) -> int:
+        return self._level
+
+    @level.setter
+    def level(self: HTMLElement, value: int) -> None:
+        self._level = value
+
+    @property
+    def tree(self: HTMLElement) -> etree.ElementTree:
+        tree = etree.ElementTree(self._element)
+        tree.indent(tree, space="    ", level=self.level)
+        return tree
+
+    @property
     def text(self: HTMLElement) -> Optional[str]:
-        return self._text
+        return self._element.text
 
     @text.setter
     def text(self: HTMLElement, value: Optional[str]) -> None:
-        self._text = value
-        self.element.text = value
-
-    def write(self: HTMLElement, filename: str) -> None:
-        etree.ElementTree(self.element).write(filename)
+        self._element.text = value
 
     def _build_element(self: HTMLElement) -> None:
         self._element = etree.Element(self.tag, attrib=self.attributes)
@@ -54,12 +64,13 @@ class HTMLElement:
     def _set_parent(self: HTMLElement) -> None:
         for child in self.children:
             child.parent = self._element
+            child.level = self._level + 1
 
     def __enter__(self: HTMLElement) -> HTMLElement:
         global PARENT_TAG
         if PARENT_TAG is not None:
-            self._parent = PARENT_TAG
-            self._append_to_parent()
+            self.parent = PARENT_TAG
+            self.level = self.parent.level + 1
         PARENT_TAG = self
         return self
 
@@ -72,3 +83,13 @@ class HTMLElement:
         global PARENT_TAG
         if PARENT_TAG is self:
             PARENT_TAG = self._parent
+
+    def to_string(self: HTMLElement) -> str:
+        return self.tree.tostring(self._element, method="html")
+
+    def write(self: HTMLElement, filename: str) -> None:
+        self.tree.write(filename, method="html")
+
+    def dump(self: HTMLElement) -> str:
+        return self.tree.dump(self._element)
+
