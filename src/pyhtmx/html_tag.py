@@ -154,7 +154,11 @@ class HTMLTag:
         if level is None:
             level = self.level
         etree.indent(self._element, space=space, level=level)
-        prefix = (level * space).encode()
+        if level == 0 and self.tag == "html":
+            prefix = b"<!DOCTYPE html>\n"
+        else:
+            prefix = b''
+        prefix += (level * space).encode()
         suffix = b'' if level > 0 else b'\n'
         encoded_string = prefix + etree.tostring(self._element, method="html") + suffix
         return encoded_string.decode()

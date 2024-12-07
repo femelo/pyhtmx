@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Optional, Union
-from html_tag_list import HTML_TAGS
-from html_tag import HTMLTag
+from .html_tag_list import HTML_TAGS
+from .html_tag import HTMLTag
 
 
 def _tag_class_factory(tag: str):
