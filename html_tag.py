@@ -29,14 +29,14 @@ def get_text_content(**kwargs: Any) -> Optional[str]:
 def correct_attributes(**kwargs: Any) -> dict[str, str]:
     new_kwargs = {} 
     for key, value in kwargs.items():
+        _key = key.lower()
         # Usual keywords
         if '_' not in key:
-            _key = key.lower()
             new_kwargs[_key] = value
             continue
         # HTMX keywords
-        if "hx" in key.lower():
-            _key = re.sub(r"\_+colon\_+", ':', key.lower())
+        if _key.startswith("hx") or _key.startswith("sse") or _key.startswith("ws"):
+            _key = re.sub(r"\_+colon\_+", ':', _key)
             delimiter = '-'
         else:
         # Other keywords (Python reserved words)
