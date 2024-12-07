@@ -4,7 +4,7 @@ from html_tag_list import HTML_TAGS
 from html_tag import HTMLTag
 
 
-def tag_class_factory(tag: str):
+def _tag_class_factory(tag: str):
     def __init__(
         self: HTMLTag,
         content: Optional[Union[str, HTMLTag, list[Union[str, HTMLTag]]]] = None,
@@ -15,4 +15,4 @@ def tag_class_factory(tag: str):
     return tag_class
 
 for tag in HTML_TAGS:
-    globals()[tag.title()] = tag_class_factory(tag)
+    globals()[tag.title()] = _tag_class_factory(tag)

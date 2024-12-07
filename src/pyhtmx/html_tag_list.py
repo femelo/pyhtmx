@@ -1,3 +1,4 @@
+# HTML5 tags
 HTML_TAGS = (
     "a",
     "abbr",

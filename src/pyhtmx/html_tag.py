@@ -10,7 +10,7 @@ PARENT_TAG: Optional[HTMLTag] = None
 
 
 # Helper functions
-def get_text_content(**kwargs: Any) -> Optional[str]:
+def _get_text_content(**kwargs: Any) -> Optional[str]:
     values = []
     for key in (
         "text",
@@ -26,7 +26,7 @@ def get_text_content(**kwargs: Any) -> Optional[str]:
     return values[0] if values else None
 
 
-def correct_attributes(**kwargs: Any) -> dict[str, str]:
+def _fix_attributes(**kwargs: Any) -> dict[str, str]:
     new_kwargs = {} 
     for key, value in kwargs.items():
         _key = key.lower()
@@ -76,10 +76,10 @@ class HTMLTag:
                 ),
             )
         # Check whether text content was specified with keyword argument
-        kw_text_content = get_text_content(**kwargs)
+        kw_text_content = _get_text_content(**kwargs)
         text_content = text_content or kw_text_content
         # Other attributes
-        self.attributes: dict[str, Any] = correct_attributes(**kwargs)
+        self.attributes: dict[str, Any] = _fix_attributes(**kwargs)
         self._parent: Optional[HTMLTag] = None
         self._level: int = 0
         self._element: Optional[etree.Element] = None
