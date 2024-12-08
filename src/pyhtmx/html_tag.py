@@ -31,7 +31,7 @@ def _fix_attributes(**kwargs: Any) -> dict[str, str]:
     for key, value in kwargs.items():
         _key = key.lower()
         # Usual keywords
-        if '_' not in key:
+        if '_' not in _key:
             new_kwargs[_key] = value
             continue
         # HTMX keywords
@@ -39,8 +39,7 @@ def _fix_attributes(**kwargs: Any) -> dict[str, str]:
             _key = re.sub(r"\_+colon\_+", ':', _key)
             delimiter = '-'
         else:
-        # Other keywords (Python reserved words)
-            _key = key.lower()
+            # Other keywords (Python reserved words)
             delimiter = "_"
         # Filter out double, leading or trailing underscores
         parts = [*filter(lambda x: x != '',_key.split('_'))]
