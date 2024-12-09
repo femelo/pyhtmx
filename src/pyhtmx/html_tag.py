@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from types import TracebackType
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List
 import re
 import xml.etree.ElementTree as etree
 
@@ -101,9 +101,17 @@ class HTMLTag:
         return self._children
     
     def add_child(self: HTMLTag, child: HTMLTag) -> None:
-        self._children.add(child)
+        self._children.append(child)
         child.parent = self
         child.level = self.level + 1
+
+    def find_elements_by_tag(self: HTMLTag, tag: str) -> List[HTMLTag]:
+        elements: List[HTMLTag] = []
+        if self.tag == tag:
+            elements.append(self)
+        for child in self._children:
+            elements += child.find_elements_by_tag(tag)
+        return elements
 
     def find_element_by_id(self: HTMLTag, _id: str) -> Optional[HTMLTag]:
         if self.attributes.get("id") == _id:
@@ -148,8 +156,7 @@ class HTMLTag:
     def __enter__(self: HTMLTag) -> HTMLTag:
         global PARENT_TAG
         if PARENT_TAG is not None:
-            self.parent = PARENT_TAG
-            self.level = self.parent.level + 1
+            PARENT_TAG.add_child(self)
         PARENT_TAG = self
         return self
 
@@ -161,7 +168,7 @@ class HTMLTag:
     ) -> None:
         global PARENT_TAG
         if PARENT_TAG is self:
-            PARENT_TAG = self._parent
+            PARENT_TAG = self.parent
 
     def to_string(
         self: HTMLTag,
