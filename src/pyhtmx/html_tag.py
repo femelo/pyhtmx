@@ -53,25 +53,25 @@ class HTMLTag:
     def __init__(
         self: HTMLTag,
         tag: str,
-        content: Optional[Union[str, HTMLTag, list[Union[str, HTMLTag]]]] = None,
+        inner_content: Optional[Union[str, HTMLTag, list[Union[str, HTMLTag]]]] = None,
         **kwargs: Any,
     ):
         self.tag = tag
         # Get text content and children, when available
         text_content: Optional[str] = None
-        if content is None:
-            self.children = []
-        elif isinstance(content, str):
-            text_content = content
-            self.children = []
-        elif isinstance(content, HTMLTag):
-            self.children = [content]
+        if inner_content is None:
+            self._children = []
+        elif isinstance(inner_content, str):
+            text_content = inner_content
+            self._children = []
+        elif isinstance(inner_content, HTMLTag):
+            self._children = [inner_content]
         else:
-            self.children = list(
+            self._children = list(
                 map(
                     lambda child: HTMLTag("span", child)
                     if isinstance(child, str) else child,
-                    content,
+                    inner_content,
                 ),
             )
         # Check whether text content was specified with keyword argument
@@ -95,6 +95,24 @@ class HTMLTag:
         self._parent = value
         if self._parent is not None and self._parent._element is not None:
             self._parent._element.append(self._element)
+
+    @property
+    def children(self: HTMLTag) -> list[Union[str, HTMLTag]]:
+        return self._children
+    
+    def add_child(self: HTMLTag, child: HTMLTag) -> None:
+        self._children.add(child)
+        child.parent = self
+        child.level = self.level + 1
+
+    def find_element_by_id(self: HTMLTag, _id: str) -> Optional[HTMLTag]:
+        if self.attributes.get("id") == _id:
+            return self
+        for child in self._children:
+            element = child.find_element_by_id(_id)
+            if element is not None:
+                return element
+        return None
 
     @property
     def level(self: HTMLTag) -> int:
@@ -123,7 +141,7 @@ class HTMLTag:
             self._element.text = text
 
     def _set_parent(self: HTMLTag) -> None:
-        for child in self.children:
+        for child in self._children:
             child.parent = self
             child.level = self.level + 1
 

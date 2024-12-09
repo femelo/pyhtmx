@@ -61,6 +61,7 @@ HTML_TAGS = (
     "map",
     "mark",
     "menu",
+    "meta",
     "meter",
     "nav",
     "object",
