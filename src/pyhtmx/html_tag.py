@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from types import TracebackType
-from typing import Any, Optional, Union, List
+from typing import Any, Optional, Union, Dict, List
 import re
 import xml.etree.ElementTree as etree
 
@@ -26,13 +26,18 @@ def _get_text_content(**kwargs: Any) -> Optional[str]:
     return values[0] if values else None
 
 
-def _fix_attributes(**kwargs: Any) -> dict[str, str]:
+def _fix_attributes(**kwargs: Any) -> Dict[str, str]:
     new_kwargs = {} 
     for key, value in kwargs.items():
+        # Transform lists into a single string
+        if isinstance(value, list):
+            _value = ' '.join(map(str, value))
+        else:
+            _value = value
         _key = key.lower()
         # Usual keywords
         if '_' not in _key:
-            new_kwargs[_key] = value
+            new_kwargs[_key] = _value
             continue
         # HTMX keywords
         if _key.startswith("hx") or _key.startswith("sse") or _key.startswith("ws"):
@@ -44,7 +49,7 @@ def _fix_attributes(**kwargs: Any) -> dict[str, str]:
         # Filter out double, leading or trailing underscores
         parts = [*filter(lambda x: x != '',_key.split('_'))]
         new_key = delimiter.join(parts)
-        new_kwargs[new_key] = value
+        new_kwargs[new_key] = _value
 
     return new_kwargs
 
@@ -99,7 +104,18 @@ class HTMLTag:
     @property
     def children(self: HTMLTag) -> list[Union[str, HTMLTag]]:
         return self._children
-    
+
+    def update_attributes(
+        self: HTMLTag,
+        text_content: Optional[str] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if text_content:
+            self._element.text = text_content
+        if attributes:
+            for key, value in attributes.items():
+                self._element.set(key, value)
+
     def add_child(self: HTMLTag, child: HTMLTag) -> None:
         self._children.append(child)
         child.parent = self
