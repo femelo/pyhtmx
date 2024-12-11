@@ -10,7 +10,7 @@ PARENT_TAG: Optional[HTMLTag] = None
 
 
 # Helper functions
-def _get_text_content(**kwargs: Any) -> Optional[str]:
+def _get_text_content(kwargs: Dict[str, Any]) -> Optional[str]:
     values = []
     for key in (
         "text",
@@ -26,14 +26,20 @@ def _get_text_content(**kwargs: Any) -> Optional[str]:
     return values[0] if values else None
 
 
-def _fix_attributes(**kwargs: Any) -> Dict[str, str]:
+def _fix_attributes(kwargs: Dict[str, Any]) -> Dict[str, str]:
     new_kwargs = {} 
     for key, value in kwargs.items():
-        # Transform lists into a single string
+        # Transform lists, dictionaries and other types in a string
         if isinstance(value, list):
+            # for a class list
             _value = ' '.join(map(str, value))
+        elif isinstance(value, dict):
+            # for inline style
+            _value = ' '.join(
+                map(lambda k, v: f"{k}: {v};", value.keys(), value.values())
+            )
         else:
-            _value = value
+            _value = str(value)
         _key = key.lower()
         # Usual keywords
         if '_' not in _key:
@@ -58,7 +64,7 @@ class HTMLTag:
     def __init__(
         self: HTMLTag,
         tag: str,
-        inner_content: Optional[Union[str, HTMLTag, list[Union[str, HTMLTag]]]] = None,
+        inner_content: Optional[Union[str, HTMLTag, List[Union[str, HTMLTag]]]] = None,
         **kwargs: Any,
     ):
         self.tag = tag
@@ -80,10 +86,10 @@ class HTMLTag:
                 ),
             )
         # Check whether text content was specified with keyword argument
-        kw_text_content = _get_text_content(**kwargs)
+        kw_text_content = _get_text_content(kwargs)
         text_content = text_content or kw_text_content
         # Other attributes
-        self.attributes: dict[str, Any] = _fix_attributes(**kwargs)
+        self.attributes: Dict[str, str] = _fix_attributes(kwargs)
         self._parent: Optional[HTMLTag] = None
         self._level: int = 0
         self._element: Optional[etree.Element] = None
@@ -97,12 +103,17 @@ class HTMLTag:
 
     @parent.setter
     def parent(self: HTMLTag, value: Optional[HTMLTag]) -> None:
-        self._parent = value
-        if self._parent is not None and self._parent._element is not None:
-            self._parent._element.append(self._element)
+        if value is None:
+            if self._parent is not None and self._parent._element is not None:
+                self._parent._element.remove(self._element)
+            self._parent = value
+        else:
+            self._parent = value
+            if self._parent is not None and self._parent._element is not None:
+                self._parent._element.append(self._element)
 
     @property
-    def children(self: HTMLTag) -> list[Union[str, HTMLTag]]:
+    def children(self: HTMLTag) -> List[Union[str, HTMLTag]]:
         return self._children
 
     def update_attributes(
@@ -113,8 +124,19 @@ class HTMLTag:
         if text_content:
             self._element.text = text_content
         if attributes:
-            for key, value in attributes.items():
+            formatted_attributes = _fix_attributes(attributes)
+            self.attributes.update(formatted_attributes)
+            for key, value in formatted_attributes.items():
                 self._element.set(key, value)
+
+    def detach_children(self: HTMLTag) -> List[HTMLTag]:
+        children = []
+        while self._children:
+            child = self._children.pop(0)
+            child.parent = None
+            child.level = 0
+            children.append(child)
+        return children
 
     def add_child(self: HTMLTag, child: HTMLTag) -> None:
         self._children.append(child)
