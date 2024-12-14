@@ -124,10 +124,32 @@ class HTMLTag:
         if text_content:
             self._element.text = text_content
         if attributes:
+            # TODO: consider updating values incrementally
+            # (e.g., adding a class to an existing list)
             formatted_attributes = _fix_attributes(attributes)
             self.attributes.update(formatted_attributes)
             for key, value in formatted_attributes.items():
                 self._element.set(key, value)
+
+    def pop_child(
+        self: HTMLTag,
+        index: Optional[int] = None
+    ) -> Optional[HTMLTag]:
+        child: Optional[HTMLTag] = None
+        # Pop child
+        if not self._children:
+            pass
+        elif index is None:
+            child = self._children.pop()
+        elif 0 <= index < len(self._children):
+            child = self._children.pop(index)
+        else:
+            pass
+        # Detach child
+        if child:
+            child.parent = None
+            child.level = 0
+        return child
 
     def detach_children(self: HTMLTag) -> List[HTMLTag]:
         children = []
@@ -137,6 +159,14 @@ class HTMLTag:
             child.level = 0
             children.append(child)
         return children
+
+    def insert_child(self: HTMLTag, index: int, child: HTMLTag) -> None:
+        if 0 <= index <= len(self._children):
+            self._children.insert(index, child)
+            child.parent = self
+            child.level = self.level + 1
+        else:
+            raise IndexError("Index out of range.")
 
     def add_child(self: HTMLTag, child: HTMLTag) -> None:
         self._children.append(child)
