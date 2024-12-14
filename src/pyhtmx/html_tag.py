@@ -163,7 +163,9 @@ class HTMLTag:
     def insert_child(self: HTMLTag, index: int, child: HTMLTag) -> None:
         if 0 <= index <= len(self._children):
             self._children.insert(index, child)
-            child.parent = self
+            child._parent = self
+            if self._element is not None:
+                self._element.insert(index, child._element)
             child.level = self.level + 1
         else:
             raise IndexError("Index out of range.")
