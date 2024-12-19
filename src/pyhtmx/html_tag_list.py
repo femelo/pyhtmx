@@ -26,6 +26,7 @@ HTML_TAGS = (
     "del",
     "details",
     "dfn",
+    "dialog",
     "div",
     "dl",
     "dt",
