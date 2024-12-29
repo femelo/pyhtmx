@@ -27,7 +27,7 @@ def _get_text_content(kwargs: Dict[str, Any]) -> Optional[str]:
 
 
 def _fix_attributes(kwargs: Dict[str, Any]) -> Dict[str, str]:
-    new_kwargs = {} 
+    new_kwargs = {}
     for key, value in kwargs.items():
         # Transform lists, dictionaries and other types in a string
         if isinstance(value, list):
@@ -46,14 +46,14 @@ def _fix_attributes(kwargs: Dict[str, Any]) -> Dict[str, str]:
             new_kwargs[_key] = _value
             continue
         # HTMX keywords
-        if _key.startswith("hx") or _key.startswith("sse") or _key.startswith("ws"):
+        if any([_key.startswith(k) for k in ("hx", "sse", "ws")]):
             _key = re.sub(r"\_+colon\_+", ':', _key)
             delimiter = '-'
         else:
             # Other keywords (Python reserved words)
             delimiter = "_"
         # Filter out double, leading or trailing underscores
-        parts = [*filter(lambda x: x != '',_key.split('_'))]
+        parts = [*filter(lambda x: x != '', _key.split('_'))]
         new_key = delimiter.join(parts)
         new_kwargs[new_key] = _value
 
@@ -64,7 +64,9 @@ class HTMLTag:
     def __init__(
         self: HTMLTag,
         tag: str,
-        inner_content: Optional[Union[str, HTMLTag, List[Union[str, HTMLTag]]]] = None,
+        inner_content: Optional[
+            Union[str, HTMLTag, List[Union[str, HTMLTag]]]
+        ] = None,
         **kwargs: Any,
     ):
         self.tag = tag
@@ -212,7 +214,6 @@ class HTMLTag:
     def text(self: HTMLTag, value: Optional[str]) -> None:
         self._element.text = value
 
-
     def _build_element(self: HTMLTag, text: Optional[str] = None) -> None:
         self._element = etree.Element(self.tag, attrib=self.attributes)
         if text is not None:
@@ -254,7 +255,8 @@ class HTMLTag:
             prefix = b''
         prefix += (level * space).encode()
         suffix = b'' if level > 0 else b'\n'
-        encoded_string = prefix + etree.tostring(self._element, method="html") + suffix
+        encoded_string = prefix + \
+            etree.tostring(self._element, method="html") + suffix
         return encoded_string.decode()
 
     def write(
