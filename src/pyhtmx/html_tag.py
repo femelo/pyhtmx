@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from types import TracebackType
-from typing import Any, Optional, Union, Dict, List
+from typing import Any, Optional, Union, Iterable, List, Dict
 import re
 import xml.etree.ElementTree as etree
 
@@ -11,6 +11,17 @@ PARENT_TAG: Optional[HTMLTag] = None
 
 # Helper functions
 def _get_text_content(kwargs: Dict[str, Any]) -> Optional[str]:
+    """Extract text content from kwargs dictionary.
+
+    Looks for text content under various common key names and returns the first
+    non-None value found. Removes the key from kwargs after extracting.
+
+    Args:
+        kwargs: Dictionary of keyword arguments that may contain text content
+
+    Returns:
+        Optional[str]: The text content if found, None otherwise
+    """
     values = []
     for key in (
         "text",
@@ -26,24 +37,104 @@ def _get_text_content(kwargs: Dict[str, Any]) -> Optional[str]:
     return values[0] if values else None
 
 
-def _fix_attributes(kwargs: Dict[str, Any]) -> Dict[str, str]:
+def _convert_value_type(
+    value: Any,
+) -> Union[str, Iterable[str], Dict[str, str]]:
+    """Convert a value to a string, list of strings, or dictionary of strings.
+
+    Args:
+        value: The value to convert. Can be any type.
+
+    Returns:
+        Union[str, Iterable[str], Dict[str, str]]: The converted value.
+            - For lists/tuples/sets: Returns list of string representations
+            - For dicts: Returns dict with string key/value pairs
+            - For all other types: Returns string representation
+    """
+    if isinstance(value, (list, tuple, set)):
+        _value = list(map(str, value))
+    elif isinstance(value, dict):
+        _value = dict(
+            map(lambda k, v: (str(k), str(v)), value.keys(), value.values())
+        )
+    else:
+        _value = str(value)
+    return _value
+
+
+def _format_value(value: Union[str, Iterable[str], Dict[str, str]]) -> str:
+    """Convert a formatted value to a string representation.
+
+    Args:
+        value: The pre-formatted value to convert. Can be a string, iterable
+            of strings, or dictionary of strings.
+
+    Returns:
+        str: The string representation of the value.
+            - For lists/tuples/sets: Space-joined string of values (class list)
+            - For dicts: CSS style format "key: value;" joined with spaces
+            - For strings: The original string value
+    """
+    # Transform lists, dictionaries and other types in a string
+    if isinstance(value, (list, tuple, set)):
+        # for a class list
+        _value = ' '.join(value)
+    elif isinstance(value, dict):
+        # for inline style
+        _value = ' '.join(
+            map(
+                lambda k, v: f"{k}: {v};",
+                value.keys(),
+                value.values(),
+            )
+        )
+    else:
+        _value = str(value)  # copy value
+    return _value
+
+
+def _format_values(kwargs: Dict[str, Any]) -> Dict[str, str]:
+    """Format dictionary values for HTML tag attributes.
+
+    Takes a dictionary of attribute key/value pairs and formats all values
+    into proper string representations using _format_value().
+
+    Args:
+        kwargs: Dictionary of attribute key/value pairs to format
+
+    Returns:
+        Dict[str, str]: Dictionary with same keys but values converted to
+            strings using appropriate formatting rules:
+            - Lists/sets become space-separated class lists
+            - Dicts become CSS style strings
+            - Other values converted to simple strings
+    """
+    return {key: _format_value(value) for key, value in kwargs.items()}
+
+
+def _preformat(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Preformat keyword arguments for HTML tag attributes.
+
+    Processes kwargs dictionary to standardize attribute names and values:
+    - Converts keys to lowercase
+    - Handles special HTMX attributes with colons (hx:*, sse:*, ws:*)
+    - Converts underscores to hyphens for HTMX attributes
+    - Remove underscores for Python reserved words
+    - Filters out empty/duplicate underscores
+    - Converts values to appropriate string formats
+
+    Args:
+        kwargs: Dictionary of raw keyword arguments
+
+    Returns:
+        Dict[str, Any]: Dictionary with processed keys and formatted values
+    """
     new_kwargs = {}
     for key, value in kwargs.items():
-        # Transform lists, dictionaries and other types in a string
-        if isinstance(value, list):
-            # for a class list
-            _value = ' '.join(map(str, value))
-        elif isinstance(value, dict):
-            # for inline style
-            _value = ' '.join(
-                map(lambda k, v: f"{k}: {v};", value.keys(), value.values())
-            )
-        else:
-            _value = str(value)
         _key = key.lower()
         # Usual keywords
         if '_' not in _key:
-            new_kwargs[_key] = _value
+            new_kwargs[_key] = value
             continue
         # HTMX keywords
         if any([_key.startswith(k) for k in ("hx", "sse", "ws")]):
@@ -53,14 +144,21 @@ def _fix_attributes(kwargs: Dict[str, Any]) -> Dict[str, str]:
             # Other keywords (Python reserved words)
             delimiter = "_"
         # Filter out double, leading or trailing underscores
-        parts = [*filter(lambda x: x != '', _key.split('_'))]
-        new_key = delimiter.join(parts)
-        new_kwargs[new_key] = _value
-
+        new_key = delimiter.join(
+            filter(lambda x: x != '', _key.split('_'))
+        )
+        new_kwargs[new_key] = _convert_value_type(value)
     return new_kwargs
 
 
 class HTMLTag:
+    """
+    Represents an HTML tag with its attributes and content.
+
+    This class is used to create and manipulate HTML tags in a Pythonic way.
+    It allows for easy creation of HTML elements with attributes and content,
+    including text content and nested HTML tags.
+    """
     def __init__(
         self: HTMLTag,
         tag: str,
@@ -91,7 +189,9 @@ class HTMLTag:
         kw_text_content = _get_text_content(kwargs)
         text_content = text_content or kw_text_content
         # Other attributes
-        self.attributes: Dict[str, str] = _fix_attributes(kwargs)
+        self.attributes: Dict[
+            str, Union[str, Iterable[str], Dict[str, str]]
+        ] = _preformat(kwargs)
         self._parent: Optional[HTMLTag] = None
         self._level: int = 0
         self._element: Optional[etree.Element] = None
@@ -122,16 +222,26 @@ class HTMLTag:
         self: HTMLTag,
         text_content: Optional[str] = None,
         attributes: Optional[Dict[str, Any]] = None,
+        incremental: bool = False,
     ) -> None:
-        if text_content:
+        if text_content or text_content == '':
             self._element.text = text_content
         if attributes:
-            # TODO: consider updating values incrementally
-            # (e.g., adding a class to an existing list)
-            formatted_attributes = _fix_attributes(attributes)
-            self.attributes.update(formatted_attributes)
-            for key, value in formatted_attributes.items():
-                self._element.set(key, value)
+            for key, value in _preformat(attributes).items():
+                if isinstance(value, list):
+                    if not incremental or key not in self.attributes:
+                        self.attributes[key] = []
+                    self.attributes[key] = list(
+                        set(self.attributes[key]).union(value)
+                    )
+                elif isinstance(value, dict):
+                    if not incremental or key not in self.attributes:
+                        self.attributes[key] = {}
+                    self.attributes[key].update(value)
+                else:
+                    self.attributes[key] = value
+                # Apply new value
+                self._element.set(key, _format_value(self.attributes[key]))
 
     def pop_child(
         self: HTMLTag,
@@ -215,7 +325,10 @@ class HTMLTag:
         self._element.text = value
 
     def _build_element(self: HTMLTag, text: Optional[str] = None) -> None:
-        self._element = etree.Element(self.tag, attrib=self.attributes)
+        self._element = etree.Element(
+            self.tag,
+            attrib=_format_values(self.attributes)
+        )
         if text is not None:
             self._element.text = text
 
