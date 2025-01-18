@@ -112,6 +112,33 @@ def _format_values(kwargs: Dict[str, Any]) -> Dict[str, str]:
     return {key: _format_value(value) for key, value in kwargs.items()}
 
 
+def _split_value(key: str, value: str) -> Union[str, List[str], Dict[str, str]]:
+    """
+    Splits the input value based on the provided key.
+
+    Args:
+        key (str): The key indicating how to split the value.
+            Expected values are "class" or "style".
+        value (str): The string value to be split.
+
+    Returns:
+        Union[str, List[str], Dict[str, str]]:
+            - If key is "class", returns a list of class names.
+            - If key is "style", returns a dictionary of style properties.
+            - Otherwise, returns the original value.
+    """
+    if key == "class" and isinstance(value, str):
+        split_value: List[str] = list(map(str.strip, value.split()))
+    elif key == "style" and isinstance(value, str):
+        pairs = map(str.strip, filter(lambda pair: pair != '', value.split(";")))
+        split_value: Dict[str, str] = dict(
+            map(lambda item: tuple(map(str.strip, item.split(":"))), pairs)
+        )
+    else:
+        split_value: Union[str, List[str], Dict[str, str]] = value
+    return split_value
+
+
 def _preformat(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """Preformat keyword arguments for HTML tag attributes.
 
@@ -134,7 +161,7 @@ def _preformat(kwargs: Dict[str, Any]) -> Dict[str, Any]:
         _key = key.lower()
         # Usual keywords
         if '_' not in _key:
-            new_kwargs[_key] = value
+            new_kwargs[_key] = _split_value(_key, value)
             continue
         # HTMX keywords
         if any([_key.startswith(k) for k in ("hx", "sse", "ws")]):
@@ -147,7 +174,7 @@ def _preformat(kwargs: Dict[str, Any]) -> Dict[str, Any]:
         new_key = delimiter.join(
             filter(lambda x: x != '', _key.split('_'))
         )
-        new_kwargs[new_key] = _convert_value_type(value)
+        new_kwargs[new_key] = _convert_value_type(_split_value(new_key, value))
     return new_kwargs
 
 
@@ -231,8 +258,8 @@ class HTMLTag:
                 if isinstance(value, list):
                     if not incremental or key not in self.attributes:
                         self.attributes[key] = []
-                    self.attributes[key] = list(
-                        set(self.attributes[key]).union(value)
+                    self.attributes[key].extend(
+                        filter(lambda v: v not in self.attributes[key], value)
                     )
                 elif isinstance(value, dict):
                     if not incremental or key not in self.attributes:
