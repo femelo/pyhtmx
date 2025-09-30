@@ -127,15 +127,16 @@ def _split_value(key: str, value: str) -> Union[str, List[str], Dict[str, str]]:
             - If key is "style", returns a dictionary of style properties.
             - Otherwise, returns the original value.
     """
+    split_value: Union[str, List[str], Dict[str, str]] = value
     if key == "class" and isinstance(value, str):
-        split_value: List[str] = list(map(str.strip, value.split()))
+        split_value = list(map(str.strip, value.split()))
     elif key == "style" and isinstance(value, str):
         pairs = map(str.strip, filter(lambda pair: pair != '', value.split(";")))
-        split_value: Dict[str, str] = dict(
-            map(lambda item: tuple(map(str.strip, item.split(":"))), pairs)
+        split_value = dict(
+            map(lambda item: tuple(map(str.strip, item.split(":"))), pairs)  # type: ignore
         )
     else:
-        split_value: Union[str, List[str], Dict[str, str]] = value
+        pass
     return split_value
 
 
@@ -233,16 +234,16 @@ class HTMLTag:
     @parent.setter
     def parent(self: HTMLTag, value: Optional[HTMLTag]) -> None:
         if value is None:
-            if self._parent is not None and self._parent._element is not None:
+            if self._parent and self._parent._element and self._element:
                 self._parent._element.remove(self._element)
             self._parent = value
         else:
             self._parent = value
-            if self._parent is not None and self._parent._element is not None:
+            if self._parent and self._parent._element and self._element:
                 self._parent._element.append(self._element)
 
     @property
-    def children(self: HTMLTag) -> List[Union[str, HTMLTag]]:
+    def children(self: HTMLTag) -> Union[List[str], List[HTMLTag]]:
         return self._children
 
     def update_attributes(
@@ -251,20 +252,24 @@ class HTMLTag:
         attributes: Optional[Dict[str, Any]] = None,
         incremental: bool = False,
     ) -> None:
+        if self._element is None:
+            return
+        # Update text content
         if text_content or text_content == '':
             self._element.text = text_content
+        # Update attributes
         if attributes:
             for key, value in _preformat(attributes).items():
                 if isinstance(value, list):
                     if not incremental or key not in self.attributes:
                         self.attributes[key] = []
-                    self.attributes[key].extend(
+                    self.attributes[key].extend(  # type: ignore
                         filter(lambda v: v not in self.attributes[key], value)
                     )
                 elif isinstance(value, dict):
                     if not incremental or key not in self.attributes:
                         self.attributes[key] = {}
-                    self.attributes[key].update(value)
+                    self.attributes[key].update(value)  # type: ignore
                 else:
                     self.attributes[key] = value
                 # Apply new value
@@ -294,16 +299,17 @@ class HTMLTag:
         children = []
         while self._children:
             child = self._children.pop(0)
-            child.parent = None
-            child.level = 0
-            children.append(child)
+            if child:
+                child.parent = None
+                child.level = 0
+                children.append(child)
         return children
 
     def insert_child(self: HTMLTag, index: int, child: HTMLTag) -> None:
         if 0 <= index <= len(self._children):
             self._children.insert(index, child)
             child._parent = self
-            if self._element is not None:
+            if self._element and child._element:
                 self._element.insert(index, child._element)
             child.level = self.level + 1
         else:
@@ -345,10 +351,14 @@ class HTMLTag:
 
     @property
     def text(self: HTMLTag) -> Optional[str]:
+        if self._element is None:
+            return None
         return self._element.text
 
     @text.setter
     def text(self: HTMLTag, value: Optional[str]) -> None:
+        if self._element is None:
+            return
         self._element.text = value
 
     def _build_element(self: HTMLTag, text: Optional[str] = None) -> None:
@@ -386,6 +396,8 @@ class HTMLTag:
         space: str = 2 * " ",
         level: Optional[int] = None,
     ) -> str:
+        if self._element is None:
+            return ''
         if level is None:
             level = self.level
         etree.indent(self._element, space=space, level=level)
@@ -418,6 +430,8 @@ class HTMLTag:
         str = 2 * " ",
         level: Optional[int] = None,
     ) -> None:
+        if self._element is None:
+            return
         if level is None:
             level = self.level
         etree.indent(self._element, space=space, level=level)
